@@ -12,6 +12,7 @@ but you can also run it manually any time:  python build.py
 
 import datetime as dt
 import html
+import os
 import sys
 
 import feedparser
@@ -52,15 +53,24 @@ COMMODITIES_FX = [
     ("Silver (Comex)", "SI=F", "$", "/oz"),
 ]
 
-# NSE sectoral indices. Yahoo's coverage of these is inconsistent — the
-# script silently skips any ticker that fails to fetch.
+# Major NSE sectoral indices. Yahoo coverage can be inconsistent for
+# individual indices; unavailable ones are shown as "data unavailable"
+# instead of being removed from the dashboard.
 SECTORS = [
-    ("Auto", "^CNXAUTO"), ("IT", "^CNXIT"), ("Metal", "^CNXMETAL"),
-    ("Bank", "^NSEBANK"), ("Financial Services", "^CNXFIN"),
-    ("Pharma", "^CNXPHARMA"), ("FMCG", "^CNXFMCG"),
-    ("Realty", "^CNXREALTY"), ("PSU Bank", "^CNXPSUBANK"),
-    ("Energy", "^CNXENERGY"), ("Media", "^CNXMEDIA"),
-    ("Private Bank", "^NIFTYPVTBANK"),
+    ("Auto", "^CNXAUTO"),
+    ("Bank", "^NSEBANK"),
+    ("Financial Services", "^CNXFINANCE"),
+    ("IT", "^CNXIT"),
+    ("Pharma", "^CNXPHARMA"),
+    ("FMCG", "^CNXFMCG"),
+    ("Metal", "^CNXMETAL"),
+    ("Energy", "^CNXENERGY"),
+    ("Infrastructure", "^CNXINFRA"),
+    ("Realty", "^CNXREALTY"),
+    ("PSU Bank", "^CNXPSUBANK"),
+    ("Media", "^CNXMEDIA"),
+    ("PSE", "^CNXPSE"),
+    ("Consumption", "^CNXCONSUM"),
 ]
 
 # RSS feeds for market-moving Indian news. Feel free to add/remove sources.
@@ -78,9 +88,7 @@ NEWS_KEYWORDS = [
     "gst", "budget", "inflation", "repo rate", "monsoon session", "nse", "bse",
 ]
 
-MAX_NEWS_ITEMS = 16
-IMPACT_HIGH = ["rbi","sebi","repo rate","rate cut","rate hike","tariff","crude","oil","hormuz","iran","israel","war","inflation","gdp","fii","fpi","nifty","sensex","bank nifty","earnings","results","guidance"]
-IMPACT_MEDIUM = ["ipo","order","capex","dividend","merger","acquisition","promoter","production","export","import","rupee","fed","jobs"]
+MAX_NEWS_ITEMS = 10
 
 # ---------------------------------------------------------------------------
 # 2. MANUAL OVERRIDES — edit this by hand whenever you want curated
@@ -93,21 +101,6 @@ HOT_SECTOR_NOTES = {
     "IT": "Watch for follow-through after last week's rebound.",
     "Metal": "Tracking global commodity prices.",
     "PSU Bank": "Momentum has been the standout theme this year.",
-}
-
-SECTOR_STOCKS = {
-    "Auto": ["M&M.NS","MARUTI.NS","TATAMOTORS.NS","TVSMOTOR.NS","EICHERMOT.NS","BAJAJ-AUTO.NS"],
-    "Bank": ["HDFCBANK.NS","ICICIBANK.NS","AXISBANK.NS","KOTAKBANK.NS","SBIN.NS","INDUSINDBK.NS"],
-    "Financial Services": ["BAJFINANCE.NS","BAJAJFINSV.NS","SHRIRAMFIN.NS","CHOLAFIN.NS","SBILIFE.NS"],
-    "IT": ["TCS.NS","INFY.NS","HCLTECH.NS","WIPRO.NS","TECHM.NS","LTIM.NS"],
-    "Metal": ["TATASTEEL.NS","HINDALCO.NS","JSWSTEEL.NS","JINDALSTEL.NS","SAIL.NS","NMDC.NS"],
-    "Pharma": ["SUNPHARMA.NS","CIPLA.NS","DRREDDY.NS","DIVISLAB.NS","LUPIN.NS"],
-    "FMCG": ["HINDUNILVR.NS","ITC.NS","NESTLEIND.NS","BRITANNIA.NS","TATACONSUM.NS","DABUR.NS"],
-    "Realty": ["DLF.NS","LODHA.NS","GODREJPROP.NS","OBEROIRLTY.NS","PRESTIGE.NS"],
-    "PSU Bank": ["SBIN.NS","BANKBARODA.NS","PNB.NS","CANBK.NS","UNIONBANK.NS","INDIANB.NS"],
-    "Energy": ["RELIANCE.NS","ONGC.NS","COALINDIA.NS","NTPC.NS","POWERGRID.NS","BPCL.NS"],
-    "Media": ["ZEEL.NS","SUNTV.NS","PVRINOX.NS","NETWORK18.NS"],
-    "Private Bank": ["HDFCBANK.NS","ICICIBANK.NS","AXISBANK.NS","KOTAKBANK.NS","FEDERALBNK.NS"],
 }
 
 
@@ -131,28 +124,6 @@ def fetch_quote(ticker: str):
         print(f"  ! failed to fetch {ticker}: {exc}", file=sys.stderr)
         return None
 
-
-def fetch_stock_metrics(ticker):
-    try:
-        h=yf.Ticker(ticker).history(period="1mo")
-        h=h.dropna(subset=["Close"])
-        if len(h)<6: return None
-        c=h["Close"]; last=float(c.iloc[-1]); prev=float(c.iloc[-2]); week=float(c.iloc[-6])
-        vr=None
-        if "Volume" in h.columns and len(h)>=21:
-            avg=h["Volume"].iloc[:-1].tail(20).mean()
-            if avg and avg>0: vr=float(h["Volume"].iloc[-1]/avg)
-        return {"ticker":ticker,"pct1":(last/prev-1)*100,"pct5":(last/week-1)*100,"vr":vr}
-    except Exception: return None
-
-def sector_leader_card(sec):
-    ms=[m for t in SECTOR_STOCKS.get(sec["label"],[]) if (m:=fetch_stock_metrics(t))]
-    if not ms: return f'<div class="hot-card"><div class="hname">{html.escape(sec["label"])} <span class="hmomentum">{sec["pct"]:+.2f}%</span></div><div class="hstocks">Leader data unavailable.</div></div>'
-    for m in ms: m["score"]=m["pct1"]*.45+m["pct5"]*.4+max(0,(m["vr"] or 1)-1)*1.5
-    ms.sort(key=lambda x:x["score"],reverse=True); leaders=ms[:3]
-    breadth=sum(m["pct1"]>0 for m in ms)
-    txt=" · ".join(f'{m["ticker"].replace(".NS","")} {m["pct1"]:+.2f}% / 5D {m["pct5"]:+.2f}%' for m in leaders)
-    return f'<div class="hot-card"><div class="hname">{html.escape(sec["label"])} <span class="hmomentum">{sec["pct"]:+.2f}%</span></div><div class="hstocks"><strong>Leaders:</strong> {html.escape(txt)}<br>Breadth: {breadth}/{len(ms)} positive</div></div>'
 
 def fmt_num(x, decimals=2):
     return f"{x:,.{decimals}f}"
@@ -195,11 +166,11 @@ def fetch_news():
             if not any(k in lower for k in NEWS_KEYWORDS):
                 continue
             seen_titles.add(title)
-            blob = f"{title} {entry.get('summary','')}".lower()
-            impact = "HIGH" if any(k in blob for k in IMPACT_HIGH) else ("MEDIUM" if any(k in blob for k in IMPACT_MEDIUM) else "LOW")
-            items.append({"title":title,"link":entry.get("link","#"),"summary":(entry.get("summary","") or "")[:220],"impact":impact})
-    rank={"HIGH":3,"MEDIUM":2,"LOW":1}
-    items.sort(key=lambda x:rank[x["impact"]],reverse=True)
+            items.append({
+                "title": title,
+                "link": entry.get("link", "#"),
+                "summary": (entry.get("summary", "") or "")[:220],
+            })
     return items[:MAX_NEWS_ITEMS]
 
 
@@ -241,22 +212,23 @@ def comm_card(item, symbol, suffix):
 
 def sector_tile(item):
     if not item["ok"]:
-        return ""
+        return f"""
+      <div class="sector-tile tile-unavailable">
+        <div class="sname">{html.escape(item['label'])}</div>
+        <div class="schg unavailable">N/A</div>
+      </div>"""
     cls = "tile-up" if item["up"] else "tile-down"
-    note = HOT_SECTOR_NOTES.get(item["label"], "")
-    note_html = f'<div style="font-size:9.5px;color:var(--ink-soft);margin-top:3px;">{html.escape(note)}</div>' if note else ""
     return f"""
       <div class="sector-tile {cls}">
         <div class="sname">{html.escape(item['label'])}</div>
         <div class="schg">{item['pct']:+.2f}%</div>
-        {note_html}
       </div>"""
 
 
 def news_item(item, tag="India"):
     return f"""
     <div class="news-item">
-      <h3><span class="news-tag impact-{item.get("impact","LOW").lower()}">{html.escape(item.get("impact","LOW"))}</span>{html.escape(item["title"])}</h3>
+      <h3><span class="news-tag">{html.escape(tag)}</span>{html.escape(item['title'])}</h3>
       <p><a href="{html.escape(item['link'])}" target="_blank" rel="noopener">Read full story →</a></p>
     </div>"""
 
@@ -287,11 +259,7 @@ def build():
     news = fetch_news()
 
     ok_sectors = [s for s in sectors if s["ok"]]
-    nifty_pct = next((x["pct"] for x in indian if x["label"]=="Nifty 50" and x["ok"]), 0)
-    for s in ok_sectors:
-        s["relative"] = s["pct"] - nifty_pct
-        s["rank_score"] = s["pct"]*.7 + s["relative"]*.3
-    top_sectors = sorted(ok_sectors, key=lambda s:s["rank_score"], reverse=True)[:4]
+    top_sectors = sorted(ok_sectors, key=lambda s: s["pct"], reverse=True)[:3]
 
     ticker_parts = []
     for item in indian + us:
@@ -308,9 +276,20 @@ def build():
     for item, (_, _, symbol, suffix) in zip(comm, COMMODITIES_FX):
         comm_cards += comm_card(item, symbol, suffix)
 
-    sector_tiles = "".join(sector_tile(s) for s in sectors if s["ok"])
+    # Strongest sectors first, then weaker sectors; unavailable data stays visible.
+    sector_tiles = "".join(
+        sector_tile(s)
+        for s in sorted(sectors, key=lambda x: x.get("pct", -999), reverse=True)
+    )
 
-    hot_cards = "".join(sector_leader_card(x) for x in top_sectors)
+    hot_cards = ""
+    for s in top_sectors:
+        note = HOT_SECTOR_NOTES.get(s["label"], "Leading today's sector moves.")
+        hot_cards += f"""
+      <div class="hot-card">
+        <div class="hname">{html.escape(s['label'])} <span class="hmomentum">{s['pct']:+.2f}%</span></div>
+        <div class="hstocks">{html.escape(note)}</div>
+      </div>"""
 
     news_html = "".join(news_item(n) for n in news) if news else \
         '<p style="font-family:Inter,sans-serif;font-size:13px;color:var(--ink-soft);">No matching headlines found this run — check back after the next update.</p>'
@@ -328,9 +307,7 @@ def build():
         generated_at=now_ist.strftime("%d %b %Y, %H:%M IST"),
     )
 
-    import os
     os.makedirs("docs", exist_ok=True)
-
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html_out)
 
@@ -381,13 +358,14 @@ body{{margin:0;background:#d8d0ba;font-family:'Source Serif 4',serif;color:var(-
 .comm-card{{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:8px;background:var(--paper);border:1px solid var(--rule);}}
 .comm-name{{font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;}}
 .comm-val{{font-family:'IBM Plex Mono',monospace;text-align:right;font-size:13.5px;}}
-.sector-section{{padding:22px 24px;border-bottom:1px solid var(--rule);}}
-.sector-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px;}}
-.sector-tile{{padding:12px 10px;border:1px solid var(--rule);text-align:center;}}
-.sector-tile .sname{{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}}
-.sector-tile .schg{{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;margin-top:4px;}}
+.sector-side{{margin-top:18px;padding-top:16px;border-top:1px solid var(--rule);}}
+.sector-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:6px;}}
+.sector-tile{{padding:9px 7px;border:1px solid var(--rule);text-align:center;min-width:0;}}
+.sector-tile .sname{{font-family:'Inter',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+.sector-tile .schg{{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;margin-top:3px;}}
 .tile-up{{background:var(--gain-bg);}} .tile-up .schg{{color:var(--gain);}}
 .tile-down{{background:var(--loss-bg);}} .tile-down .schg{{color:var(--loss);}}
+.tile-unavailable{{background:var(--paper);opacity:.65;}} .tile-unavailable .schg{{color:var(--ink-soft);}}
 .hot-section{{padding:22px 24px;border-bottom:1px solid var(--rule);background:var(--gold-bg);}}
 .hot-header{{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;border-bottom:2px solid var(--gold);padding-bottom:6px;}}
 .hot-header h2{{font-family:'Fraunces',serif;font-size:22px;margin:0;}}
@@ -404,7 +382,7 @@ body{{margin:0;background:#d8d0ba;font-family:'Source Serif 4',serif;color:var(-
 .news-tag{{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--navy);background:#e4e1d3;padding:2px 7px;margin-right:8px;}}
 .footer{{padding:18px 24px 26px;font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-soft);line-height:1.6;background:var(--paper-dim);}}
 @media (max-width:800px){{.grid{{grid-template-columns:1fr;}} .col-left{{border-right:none;border-bottom:1px solid var(--rule);}} .sector-grid{{grid-template-columns:repeat(2,1fr);}} .hot-grid{{grid-template-columns:1fr;}} .masthead h1{{font-size:38px;}}}}
- .impact-high{{background:var(--loss-bg);color:var(--loss);}} .impact-medium{{background:var(--gold-bg);color:var(--gold);}} .impact-low{{background:#e4e1d3;color:var(--ink-soft);}}</style>
+</style>
 </head>
 <body>
 <div class="sheet">
@@ -437,20 +415,20 @@ body{{margin:0;background:#d8d0ba;font-family:'Source Serif 4',serif;color:var(-
     <div class="col-right">
       <div class="section-label">Currency &amp; Commodities</div>
       {comm_cards}
-    </div>
-  </div>
 
-  <div class="sector-section">
-    <div class="section-label">Indian Sectors — Today's Move</div>
-    <div class="sector-grid">
-      {sector_tiles}
+      <div class="sector-side">
+        <div class="section-label">Indian Sectors — Today's Move</div>
+        <div class="sector-grid">
+          {sector_tiles}
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="hot-section">
     <div class="hot-header">
       <h2>🔥 Where the Money's Moving</h2>
-      <div class="section-label">Relative strength + sector leaders</div>
+      <div class="section-label">Top 3 sectors by today's % change</div>
     </div>
     <div class="hot-grid">
       {hot_cards}
