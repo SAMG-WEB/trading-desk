@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Trading Desk — Daily Market Brief</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+:root{
+  --paper:#f6f1e6; --paper-dim:#efe8d8; --ink:#1c1b17; --ink-soft:#5c574a;
+  --rule:#c9bd9e; --navy:#1f2b45; --gain:#1c6e42; --gain-bg:#e3efe3;
+  --loss:#a53523; --loss-bg:#f4e3de; --gold:#9c6b1f; --gold-bg:#f3e8cf;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:#d8d0ba;font-family:'Source Serif 4',serif;color:var(--ink);padding:18px 0 60px;}
+.sheet{max-width:1180px;margin:0 auto;background:var(--paper);box-shadow:0 6px 30px rgba(0,0,0,0.25);border:1px solid var(--rule);}
+.masthead{padding:26px 36px 16px;border-bottom:4px double var(--ink);text-align:center;}
+.masthead .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--ink-soft);text-transform:uppercase;}
+.masthead h1{font-family:'Fraunces',serif;font-weight:700;font-size:56px;margin:6px 0 4px;letter-spacing:-0.5px;}
+.masthead .tagline{font-style:italic;color:var(--ink-soft);font-size:15px;}
+.masthead .meta-row{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);margin-top:14px;padding-top:10px;border-top:1px solid var(--rule);flex-wrap:wrap;gap:6px;}
+.ticker-wrap{background:var(--navy);color:#f1ead8;overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--ink);}
+.ticker{display:inline-block;padding:9px 0;font-family:'IBM Plex Mono',monospace;font-size:12.5px;animation:scroll 42s linear infinite;}
+.ticker span{margin:0 26px;}
+.ticker .up{color:#8fd6a6;} .ticker .down{color:#f2a394;}
+@keyframes scroll{0%{transform:translateX(0%);}100%{transform:translateX(-50%);}}
+.grid{display:grid;grid-template-columns:1.55fr 1fr;gap:0;border-bottom:1px solid var(--rule);}
+.col-left{padding:22px 24px;border-right:1px solid var(--rule);}
+.col-right{padding:22px 24px;background:var(--paper-dim);}
+.section-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--navy);border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:12px;}
+.subgroup-label{font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;color:var(--ink-soft);margin:16px 0 8px;text-transform:uppercase;letter-spacing:1px;}
+.idx-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--rule);}
+.idx-name{font-family:'Inter',sans-serif;font-weight:600;font-size:14px;}
+.idx-vals{font-family:'IBM Plex Mono',monospace;text-align:right;font-size:13px;}
+.up{color:var(--gain);font-weight:600;} .down{color:var(--loss);font-weight:600;}
+.badge-up{background:var(--gain-bg);color:var(--gain);} .badge-down{background:var(--loss-bg);color:var(--loss);}
+.badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:12px;font-weight:600;}
+.comm-card{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:8px;background:var(--paper);border:1px solid var(--rule);}
+.comm-name{font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;}
+.comm-val{font-family:'IBM Plex Mono',monospace;text-align:right;font-size:13.5px;}
+.sector-section{padding:22px 24px;border-bottom:1px solid var(--rule);}
+.sector-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px;}
+.sector-tile{padding:12px 10px;border:1px solid var(--rule);text-align:center;}
+.sector-tile .sname{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
+.sector-tile .schg{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;margin-top:4px;}
+.tile-up{background:var(--gain-bg);} .tile-up .schg{color:var(--gain);}
+.tile-down{background:var(--loss-bg);} .tile-down .schg{color:var(--loss);}
+.hot-section{padding:22px 24px;border-bottom:1px solid var(--rule);background:var(--gold-bg);}
+.hot-header{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;border-bottom:2px solid var(--gold);padding-bottom:6px;}
+.hot-header h2{font-family:'Fraunces',serif;font-size:22px;margin:0;}
+.hot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.hot-card{background:var(--paper);border:1px solid var(--rule);padding:14px 16px;}
+.hot-card .hname{font-family:'Inter',sans-serif;font-weight:700;font-size:14.5px;display:flex;justify-content:space-between;align-items:center;}
+.hot-card .hmomentum{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--gain);font-weight:600;}
+.hot-card .hstocks{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--ink-soft);margin-top:6px;line-height:1.5;}
+.news-section{padding:22px 24px 28px;}
+.news-item{padding:12px 0;border-bottom:1px solid var(--rule);}
+.news-item h3{font-family:'Fraunces',serif;font-size:16px;margin:0 0 4px;font-weight:600;}
+.news-item p{margin:0;font-size:13px;}
+.news-item a{color:var(--navy);}
+.news-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--navy);background:#e4e1d3;padding:2px 7px;margin-right:8px;}
+.footer{padding:18px 24px 26px;font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-soft);line-height:1.6;background:var(--paper-dim);}
+@media (max-width:800px){.grid{grid-template-columns:1fr;} .col-left{border-right:none;border-bottom:1px solid var(--rule);} .sector-grid{grid-template-columns:repeat(2,1fr);} .hot-grid{grid-template-columns:1fr;} .masthead h1{font-size:38px;}}
+ .impact-high{background:var(--loss-bg);color:var(--loss);} .impact-medium{background:var(--gold-bg);color:var(--gold);} .impact-low{background:#e4e1d3;color:var(--ink-soft);}</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="masthead">
+    <div class="eyebrow">Personal Trading Desk · Auto-Updated Daily</div>
+    <h1>THE MARKET BRIEF</h1>
+    <div class="tagline">Indices · Sectors · Money Flow · News — before the opening bell</div>
+    <div class="meta-row">
+      <span>SATURDAY, 08 AUGUST 2026</span>
+      <span>LAST BUILT: 08 Aug 2026, 22:23 IST</span>
+    </div>
+  </div>
+
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <span>Nifty 50 <span class="down">24,570.65 ▼ -0.27%</span></span>
+      <span>Sensex <span class="down">78,499.17 ▼ -0.58%</span></span>
+      <span>Bank Nifty <span class="down">57,746.45 ▼ -0.55%</span></span>
+      <span>Nifty IT <span class="up">31,547.70 ▲ +1.42%</span></span>
+      <span>S&amp;P 500 <span class="up">7,757.64 ▲ +0.62%</span></span>
+      <span>Dow Jones <span class="up">54,036.93 ▲ +0.28%</span></span>
+      <span>Nasdaq Composite <span class="up">26,690.62 ▲ +1.30%</span></span>
+      <span>Nifty 50 <span class="down">24,570.65 ▼ -0.27%</span></span>
+      <span>Sensex <span class="down">78,499.17 ▼ -0.58%</span></span>
+      <span>Bank Nifty <span class="down">57,746.45 ▼ -0.55%</span></span>
+      <span>Nifty IT <span class="up">31,547.70 ▲ +1.42%</span></span>
+      <span>S&amp;P 500 <span class="up">7,757.64 ▲ +0.62%</span></span>
+      <span>Dow Jones <span class="up">54,036.93 ▲ +0.28%</span></span>
+      <span>Nasdaq Composite <span class="up">26,690.62 ▲ +1.30%</span></span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="col-left">
+      <div class="section-label">World Indices</div>
+      <div class="subgroup-label">🇮🇳 Indian Indices</div>
+      
+      <div class="idx-row">
+        <div class="idx-name">Nifty 50</div>
+        <div class="idx-vals">24,570.65 <span class="down badge badge-down">▼ -65.35 (-0.27%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Sensex</div>
+        <div class="idx-vals">78,499.17 <span class="down badge badge-down">▼ -455.59 (-0.58%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Bank Nifty</div>
+        <div class="idx-vals">57,746.45 <span class="down badge badge-down">▼ -317.20 (-0.55%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Nifty IT</div>
+        <div class="idx-vals">31,547.70 <span class="up badge badge-up">▲ 441.45 (+1.42%)</span></div>
+      </div>
+      <div class="subgroup-label">🇺🇸 US Indices</div>
+      
+      <div class="idx-row">
+        <div class="idx-name">S&amp;P 500</div>
+        <div class="idx-vals">7,757.64 <span class="up badge badge-up">▲ 47.68 (+0.62%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Dow Jones</div>
+        <div class="idx-vals">54,036.93 <span class="up badge badge-up">▲ 151.83 (+0.28%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Nasdaq Composite</div>
+        <div class="idx-vals">26,690.62 <span class="up badge badge-up">▲ 342.27 (+1.30%)</span></div>
+      </div>
+      <div class="subgroup-label">🌏 Asian Indices</div>
+      
+      <div class="idx-row">
+        <div class="idx-name">Nikkei 225 (Japan)</div>
+        <div class="idx-vals">65,606.71 <span class="down badge badge-down">▼ -76.55 (-0.12%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Hang Seng (Hong Kong)</div>
+        <div class="idx-vals">25,668.03 <span class="up badge badge-up">▲ 137.75 (+0.54%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Shanghai Composite</div>
+        <div class="idx-vals">3,940.04 <span class="up badge badge-up">▲ 39.69 (+1.02%)</span></div>
+      </div>
+      <div class="idx-row">
+        <div class="idx-name">Kospi (South Korea)</div>
+        <div class="idx-vals">6,258.77 <span class="down badge badge-down">▼ -37.61 (-0.60%)</span></div>
+      </div>
+    </div>
+    <div class="col-right">
+      <div class="section-label">Currency &amp; Commodities</div>
+      
+      <div class="comm-card">
+        <div><div class="comm-name">USD / INR</div></div>
+        <div class="comm-val">₹95.20 <span class="down">▼ -0.12%</span></div>
+      </div>
+      <div class="comm-card">
+        <div><div class="comm-name">Crude Oil (Brent)</div></div>
+        <div class="comm-val">$83.55/bbl <span class="up">▲ +1.29%</span></div>
+      </div>
+      <div class="comm-card">
+        <div><div class="comm-name">Crude Oil (WTI)</div></div>
+        <div class="comm-val">$78.18/bbl <span class="up">▲ +1.15%</span></div>
+      </div>
+      <div class="comm-card">
+        <div><div class="comm-name">Gold (Comex)</div></div>
+        <div class="comm-val">$4,340.70/oz <span class="up">▲ +2.33%</span></div>
+      </div>
+      <div class="comm-card">
+        <div><div class="comm-name">Silver (Comex)</div></div>
+        <div class="comm-val">$63.33/oz <span class="up">▲ +3.08%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sector-section">
+    <div class="section-label">Indian Sectors — Today's Move</div>
+    <div class="sector-grid">
+      
+      <div class="sector-tile tile-up">
+        <div class="sname">IT</div>
+        <div class="schg">+1.42%</div>
+        <div style="font-size:9.5px;color:var(--ink-soft);margin-top:3px;">Watch for follow-through after last week&#x27;s rebound.</div>
+      </div>
+      <div class="sector-tile tile-down">
+        <div class="sname">Bank</div>
+        <div class="schg">-0.55%</div>
+        
+      </div>
+      <div class="sector-tile tile-down">
+        <div class="sname">Pharma</div>
+        <div class="schg">-0.09%</div>
+        
+      </div>
+    </div>
+  </div>
+
+  <div class="hot-section">
+    <div class="hot-header">
+      <h2>🔥 Where the Money's Moving</h2>
+      <div class="section-label">Relative strength + sector leaders</div>
+    </div>
+    <div class="hot-grid">
+      <div class="hot-card"><div class="hname">IT <span class="hmomentum">+1.42%</span></div><div class="hstocks"><strong>Leaders:</strong> TCS +3.36% / 5D +3.68% · INFY +0.87% / 5D +3.98% · TECHM +0.17% / 5D -0.99%<br>Breadth: 5/5 positive</div></div><div class="hot-card"><div class="hname">Pharma <span class="hmomentum">-0.09%</span></div><div class="hstocks"><strong>Leaders:</strong> DRREDDY +0.09% / 5D +2.08% · DIVISLAB -0.89% / 5D +2.72% · LUPIN -0.90% / 5D -2.38%<br>Breadth: 1/5 positive</div></div><div class="hot-card"><div class="hname">Bank <span class="hmomentum">-0.55%</span></div><div class="hstocks"><strong>Leaders:</strong> SBIN +1.12% / 5D +6.79% · INDUSINDBK +0.57% / 5D +1.04% · KOTAKBANK -0.82% / 5D +0.35%<br>Breadth: 2/6 positive</div></div>
+    </div>
+  </div>
+
+  <div class="news-section">
+    <div class="section-label">News That Could Move Indian Markets</div>
+    
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Sensex, Nifty gain for third day in a row; easing volatility to support bull trend</h3>
+      <p><a href="https://www.moneycontrol.com/news/local-markets/sensex-nifty-gain-for-third-daya-row-easing-volatility-to-support-bull-trend_17531821.html" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Mid-day Mood | Cooling volatility sparks market rally, India VIX sees steepest fall in 4 years</h3>
+      <p><a href="https://www.moneycontrol.com/news/local-markets/mid-day-mood-|-cooling-volatility-sparks-market-rally-india-vix-sees-steepest-fall4-years_17531481.html" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Sensex, Nifty extend gains to 3rd day, Q4 results to guide stock-specific action</h3>
+      <p><a href="https://www.moneycontrol.com/news/local-markets/sensex-nifty-extend-gains-to-3rd-day-q4-results-to-guide-stock-specific-action_17530901.html" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Delhivery Q1 Results: Net profit tumbles 65% YoY to Rs 32 crore, but revenue rises 28%</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/earnings/delhivery-q1-results-net-profit-tumbles-65-yoy-to-rs-32-crore-but-revenue-rises-28/articleshow/133051939.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>India&#x27;s resilient economy to support markets but global risks remain elevated: Sebi</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/news/indias-resilient-economy-to-support-markets-but-global-risks-remain-elevated-sebi/articleshow/133051804.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Apollo Micro Systems Q1 Results: Firm posts record June-quarter profit at Rs 25 crore; revenue surges 88% YoY</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/earnings/apollo-micro-systems-q1-results-firm-posts-record-june-quarter-profit-at-rs-25-crore-revenue-surges-88-yoy/articleshow/133051313.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>CAS chaos splits Sensex and Nifty: How long will this last?</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/news/cas-chaos-splits-sensex-and-nifty-how-long-will-this-last/videoshow/133048887.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Global Market | Europe&#x27;s STOXX 600 ends week at all-time high on earnings support, soft US jobs data</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/us-stocks/news/global-market-europes-stoxx-600-ends-week-at-all-time-high-on-earnings-support-soft-us-jobs-data/articleshow/133046613.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Rupee steady as oil firms buy dollars</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/forex/forex-news/rupee-steady-as-oil-firms-buy-dollars/articleshow/133046429.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>FIIs now backing India&#x27;s consumers, not capex: July data reveals major rotation</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/news/fiis-now-backing-indias-consumers-not-capex-july-data-reveals-major-rotation/articleshow/133046488.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Wall Street Week Ahead: Inflation data to test record-setting US stocks, Fed rate views</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/us-stocks/news/wall-street-week-ahead-inflation-data-to-test-record-setting-us-stocks-fed-rate-views/articleshow/133046458.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>SBI&#x27;s Q1 profit jumps 10% YoY on loan growth, beats Street estimates</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/earnings/sbis-q1-profit-jumps-10-yoy-on-loan-growth-beats-street-estimates/articleshow/133046227.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>SGX to drop India-linked single-stock futures</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/news/sgx-to-drop-india-linked-single-stock-futures/articleshow/133046190.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Raymond Realty Q1 net profit falls 19 pc to Rs 13.43 cr on higher expenses</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/earnings/raymond-realty-q1-net-profit-falls-19-pc-to-rs-13-43-cr-on-higher-expenses/articleshow/133037906.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>9 IPOs get Sebi approval as primary market pipeline gathers pace</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/ipos/fpos/9-ipos-get-sebi-approval-as-primary-market-pipeline-gathers-pace/articleshow/133036494.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+    <div class="news-item">
+      <h3><span class="news-tag impact-high">HIGH</span>Sebi cuts inspection load for market intermediaries, shifts focus to risk-based checks</h3>
+      <p><a href="https://economictimes.indiatimes.com/markets/stocks/news/sebi-cuts-inspection-load-for-market-intermediaries-shifts-focus-to-risk-based-checks/articleshow/133036043.cms" target="_blank" rel="noopener">Read full story →</a></p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>How this page works:</strong> Rebuilt automatically once a day by a GitHub Actions workflow, using free Yahoo Finance data (via yfinance) and public market-news RSS feeds. This is informational only, not investment advice — verify live prices with your broker/terminal before trading. Data can lag or occasionally fail to load for a given symbol (shown as "data unavailable").
+  </div>
+</div>
+</body>
+</html>
