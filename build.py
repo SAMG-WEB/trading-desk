@@ -156,12 +156,47 @@ def fetch_sector_group(items):
     """
     Fetch all sector indices in one Yahoo request.
 
-    This avoids Yahoo Finance throttling caused by making a separate HTTP
-    request for every sector. If the batch request fails, fall back to the
-    normal per-ticker fetcher.
+    yfinance can return the MultiIndex columns in either orientation depending
+    on its version/settings, so we explicitly handle both:
+      (ticker, field) and (field, ticker).
     """
     out = [{"label": label, "ok": False} for label, _ in items]
-    tickers = [ticker for _, ticker in items]
+    tickers = list(dict.fromkeys(ticker for _, ticker in items))
+
+    def extract_quote(data, ticker):
+        try:
+            cols = getattr(data, "columns", None)
+            if cols is None:
+                return None
+
+            # New/standard yfinance shape: (ticker, field)
+            if hasattr(cols, "nlevels") and cols.nlevels >= 2:
+                level0 = list(cols.get_level_values(0))
+                level1 = list(cols.get_level_values(1))
+
+                if ticker in level0 and "Close" in level1:
+                    return _quote_from_close(data[(ticker, "Close")])
+
+                # Some yfinance versions return: (field, ticker)
+                if "Close" in level0 and ticker in level1:
+                    return _quote_from_close(data[("Close", ticker)])
+
+            # Single-ticker / flattened fallback.
+            if "Close" in cols:
+                close = data["Close"]
+                if hasattr(close, "columns") and ticker in close.columns:
+                    close = close[ticker]
+                return _quote_from_close(close)
+
+            # Last-resort ticker selection.
+            if ticker in cols:
+                block = data[ticker]
+                if hasattr(block, "columns") and "Close" in block.columns:
+                    return _quote_from_close(block["Close"])
+
+        except Exception:
+            pass
+        return None
 
     try:
         data = yf.download(
@@ -175,34 +210,24 @@ def fetch_sector_group(items):
         )
 
         for i, (label, ticker) in enumerate(items):
-            quote = None
-
-            # Multiple tickers normally produce MultiIndex columns:
-            # (ticker, OHLCV).
-            try:
-                if hasattr(data.columns, "levels") and ticker in data.columns.get_level_values(0):
-                    quote = _quote_from_close(data[ticker]["Close"])
-                elif ticker in getattr(data.columns, "names", []):
-                    quote = _quote_from_close(data[ticker]["Close"])
-            except Exception:
-                quote = None
-
-            if quote is not None:
-                last, change, pct = quote
-                QUOTE_CACHE[ticker] = quote
-                out[i] = {
-                    "label": label,
-                    "ok": True,
-                    "last": last,
-                    "change": change,
-                    "pct": pct,
-                    "up": change >= 0,
-                }
+            quote = extract_quote(data, ticker)
+            if quote is None:
+                continue
+            last, change, pct = quote
+            QUOTE_CACHE[ticker] = quote
+            out[i] = {
+                "label": label,
+                "ok": True,
+                "last": last,
+                "change": change,
+                "pct": pct,
+                "up": change >= 0,
+            }
 
     except Exception as exc:  # noqa: BLE001
         print(f"  ! sector batch fetch failed: {exc}", file=sys.stderr)
 
-    # Reuse anything already fetched (Bank/IT/Pharma overlap with Indian indices)
+    # Reuse anything already fetched (Bank/IT/etc. overlap with Indian indices)
     # and individually retry anything still missing.
     for i, (label, ticker) in enumerate(items):
         if out[i]["ok"]:
