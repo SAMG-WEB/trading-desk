@@ -14,6 +14,7 @@ import datetime as dt
 import html
 import os
 import sys
+import time
 
 import feedparser
 import pytz
@@ -53,9 +54,9 @@ COMMODITIES_FX = [
     ("Silver (Comex)", "SI=F", "$", "/oz"),
 ]
 
-# Major NSE sectoral indices. Yahoo coverage can be inconsistent for
-# individual indices; unavailable ones are shown as "data unavailable"
-# instead of being removed from the dashboard.
+# Major NSE sectoral indices. These are Yahoo Finance symbols for the
+# corresponding Nifty sector indices. Sectors are fetched in one batch below
+# to reduce Yahoo Finance throttling.
 SECTORS = [
     ("Auto", "^CNXAUTO"),
     ("Bank", "^NSEBANK"),
@@ -108,21 +109,118 @@ HOT_SECTOR_NOTES = {
 # 3. FETCH HELPERS
 # ---------------------------------------------------------------------------
 
-def fetch_quote(ticker: str):
-    """Return (last_price, change, pct_change) for a ticker, or None on failure."""
+QUOTE_CACHE = {}
+
+
+def _quote_from_close(close):
+    """Convert a pandas Close series into (last, change, pct), or None."""
     try:
-        t = yf.Ticker(ticker)
-        hist = t.history(period="5d")
-        if len(hist) < 2:
+        close = close.dropna()
+        if len(close) < 2:
             return None
-        last = hist["Close"].iloc[-1]
-        prev = hist["Close"].iloc[-2]
+        last = float(close.iloc[-1])
+        prev = float(close.iloc[-2])
+        if prev == 0:
+            return None
         change = last - prev
         pct = (change / prev) * 100
         return (last, change, pct)
-    except Exception as exc:  # noqa: BLE001 — we want the page to build regardless
-        print(f"  ! failed to fetch {ticker}: {exc}", file=sys.stderr)
+    except Exception:
         return None
+
+
+def fetch_quote(ticker: str):
+    """Return (last_price, change, pct_change) for a ticker, with retries/cache."""
+    if ticker in QUOTE_CACHE:
+        return QUOTE_CACHE[ticker]
+
+    for attempt in range(3):
+        try:
+            t = yf.Ticker(ticker)
+            hist = t.history(period="10d", interval="1d", auto_adjust=False)
+            quote = _quote_from_close(hist["Close"]) if "Close" in hist else None
+            if quote is not None:
+                QUOTE_CACHE[ticker] = quote
+                return quote
+        except Exception as exc:  # noqa: BLE001 — keep building the page
+            if attempt == 2:
+                print(f"  ! failed to fetch {ticker}: {exc}", file=sys.stderr)
+        if attempt < 2:
+            time.sleep(1.5 * (attempt + 1))
+
+    QUOTE_CACHE[ticker] = None
+    return None
+
+
+def fetch_sector_group(items):
+    """
+    Fetch all sector indices in one Yahoo request.
+
+    This avoids Yahoo Finance throttling caused by making a separate HTTP
+    request for every sector. If the batch request fails, fall back to the
+    normal per-ticker fetcher.
+    """
+    out = [{"label": label, "ok": False} for label, _ in items]
+    tickers = [ticker for _, ticker in items]
+
+    try:
+        data = yf.download(
+            tickers=tickers,
+            period="10d",
+            interval="1d",
+            auto_adjust=False,
+            progress=False,
+            threads=False,
+            group_by="ticker",
+        )
+
+        for i, (label, ticker) in enumerate(items):
+            quote = None
+
+            # Multiple tickers normally produce MultiIndex columns:
+            # (ticker, OHLCV).
+            try:
+                if hasattr(data.columns, "levels") and ticker in data.columns.get_level_values(0):
+                    quote = _quote_from_close(data[ticker]["Close"])
+                elif ticker in getattr(data.columns, "names", []):
+                    quote = _quote_from_close(data[ticker]["Close"])
+            except Exception:
+                quote = None
+
+            if quote is not None:
+                last, change, pct = quote
+                QUOTE_CACHE[ticker] = quote
+                out[i] = {
+                    "label": label,
+                    "ok": True,
+                    "last": last,
+                    "change": change,
+                    "pct": pct,
+                    "up": change >= 0,
+                }
+
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! sector batch fetch failed: {exc}", file=sys.stderr)
+
+    # Reuse anything already fetched (Bank/IT/Pharma overlap with Indian indices)
+    # and individually retry anything still missing.
+    for i, (label, ticker) in enumerate(items):
+        if out[i]["ok"]:
+            continue
+        q = fetch_quote(ticker)
+        if q is None:
+            continue
+        last, change, pct = q
+        out[i] = {
+            "label": label,
+            "ok": True,
+            "last": last,
+            "change": change,
+            "pct": pct,
+            "up": change >= 0,
+        }
+
+    return out
 
 
 def fmt_num(x, decimals=2):
@@ -254,7 +352,7 @@ def build():
     print("Fetching commodities & FX...")
     comm = fetch_group([(l, t) for l, t, _, _ in COMMODITIES_FX])
     print("Fetching sectors...")
-    sectors = fetch_group(SECTORS)
+    sectors = fetch_sector_group(SECTORS)
     print("Fetching news...")
     news = fetch_news()
 
