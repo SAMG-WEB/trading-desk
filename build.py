@@ -401,7 +401,7 @@ body{{margin:0;background:#d8d0ba;font-family:'Source Serif 4',serif;color:var(-
 .news-tag{{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--navy);background:#e4e1d3;padding:2px 7px;margin-right:8px;}}
 .footer{{padding:18px 24px 26px;font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-soft);line-height:1.6;background:var(--paper-dim);}}
 @media (max-width:800px){{.grid{{grid-template-columns:1fr;}} .col-left{{border-right:none;border-bottom:1px solid var(--rule);}} .sector-grid{{grid-template-columns:repeat(2,1fr);}} .hot-grid{{grid-template-columns:1fr;}} .masthead h1{{font-size:38px;}}}}
- .impact-high{background:var(--loss-bg);color:var(--loss);} .impact-medium{background:var(--gold-bg);color:var(--gold);} .impact-low{background:#e4e1d3;color:var(--ink-soft);}</style>
+ .impact-high{{background:var(--loss-bg);color:var(--loss);}} .impact-medium{{background:var(--gold-bg);color:var(--gold);}} .impact-low{{background:#e4e1d3;color:var(--ink-soft);}}</style>
 </head>
 <body>
 <div class="sheet">
