@@ -328,6 +328,9 @@ def build():
         generated_at=now_ist.strftime("%d %b %Y, %H:%M IST"),
     )
 
+    import os
+    os.makedirs("docs", exist_ok=True)
+
     with open("docs/index.html", "w", encoding="utf-8") as f:
         f.write(html_out)
 
