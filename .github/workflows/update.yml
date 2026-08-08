@@ -3,7 +3,9 @@ name: Update Trading Desk
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 1 * * 1-5"
+    # 13:30 UTC = 19:00 IST
+    # Sunday-Thursday = next trading day's briefing
+    - cron: "30 13 * * 0-4"
 
 permissions:
   contents: write
@@ -13,11 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - run: pip install -r requirements.txt
+
       - run: python build.py
+
       - name: Commit generated page
         run: |
           git config user.name "github-actions[bot]"
